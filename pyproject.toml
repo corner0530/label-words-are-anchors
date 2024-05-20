@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "label-words-are-anchors"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+datasets = "2.15.0"
+ipython = "8.11.0"
+matplotlib = "3.7.1"
+numpy = "1.24.1"
+seaborn = "0.12.2"
+tqdm = "4.65.0"
+transformers = "4.28.0"
+torch = {version = "2.1.0", source = "torch_cu121"}
+torchvision = {version = "0.16.0", source = "torch_cu121"}
+torchaudio = {version = "2.1.0", source = "torch_cu121"}
+ipykernel = "^6.29.4"
+
+
+[[tool.poetry.source]]
+name = "torch_cu121"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
