@@ -3,8 +3,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def plot_confusion_matrix(predictions, labels, classes, title='Confusion Matrix', cmap="YlGnBu",
-                          fontsize=16, symmetric=False):
+def plot_confusion_matrix(
+    predictions,
+    labels,
+    classes,
+    title="Confusion Matrix",
+    cmap="YlGnBu",
+    fontsize=16,
+    symmetric=False,
+):
     N = len(classes)
     confusion_matrix = np.zeros((N, N), dtype=np.int32)
 
@@ -18,10 +25,15 @@ def plot_confusion_matrix(predictions, labels, classes, title='Confusion Matrix'
         confusion_matrix = (confusion_matrix + confusion_matrix.T) / 2
 
     sns.set(font_scale=1.4)
-    sns.heatmap(confusion_matrix, annot=True, annot_kws={"size": fontsize}, cmap=cmap,
-                fmt='g')
-    plt.xlabel('Predicted labels')
-    plt.ylabel('True labels')
+    sns.heatmap(
+        confusion_matrix,
+        annot=True,
+        annot_kws={"size": fontsize},
+        cmap=cmap,
+        fmt="g",
+    )
+    plt.xlabel("Predicted labels")
+    plt.ylabel("True labels")
     plt.title(title)
     plt.xticks(np.arange(N) + 0.5, classes, rotation=90)
     plt.yticks(np.arange(N) + 0.5, classes, rotation=0)
@@ -29,21 +41,30 @@ def plot_confusion_matrix(predictions, labels, classes, title='Confusion Matrix'
     return confusion_matrix
 
 
-def _plot_confusion_matrix(confusion_matrix, classes, title='Confusion Matrix', cmap="YlGnBu",
-                           fontsize=16, symmetric=False):
+def _plot_confusion_matrix(
+    confusion_matrix,
+    classes,
+    title="Confusion Matrix",
+    cmap="YlGnBu",
+    fontsize=16,
+    symmetric=False,
+):
     N = len(confusion_matrix)
     if symmetric:
-        confusion_matrix = (confusion_matrix + confusion_matrix.T)/2
+        confusion_matrix = (confusion_matrix + confusion_matrix.T) / 2
 
     sns.set(font_scale=1.4)
-    sns.heatmap(confusion_matrix, annot=True, annot_kws={"size": fontsize}, cmap=cmap,
-                fmt='g')
-    plt.xlabel('Predicted labels')
-    plt.ylabel('True labels')
+    sns.heatmap(
+        confusion_matrix,
+        annot=True,
+        annot_kws={"size": fontsize},
+        cmap=cmap,
+        fmt="g",
+    )
+    plt.xlabel("Predicted labels")
+    plt.ylabel("True labels")
     plt.title(title)
     plt.xticks(np.arange(N) + 0.5, classes, rotation=90)
     plt.yticks(np.arange(N) + 0.5, classes, rotation=0)
     plt.show()
     return confusion_matrix
-
-

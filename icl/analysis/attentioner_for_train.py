@@ -28,7 +28,15 @@ class AttentionAdapterBase(nn.Module):
         self.input_ids = input_ids
 
 
-def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, attention_adapter=None):
+def gpt2_attn(
+    self,
+    query,
+    key,
+    value,
+    attention_mask=None,
+    head_mask=None,
+    attention_adapter=None,
+):
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     if self.scale_attn_weights:
@@ -39,9 +47,12 @@ def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
 
     if not self.is_cross_attention:
         query_length, key_length = query.size(-2), key.size(-2)
-        causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length].bool()
-        attn_weights = torch.where(causal_mask, attn_weights,
-                                   self.masked_bias.to(attn_weights.dtype))
+        causal_mask = self.bias[
+            :, :, key_length - query_length : key_length, :key_length
+        ].bool()
+        attn_weights = torch.where(
+            causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype)
+        )
 
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
@@ -63,7 +74,14 @@ def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
 
 
 class AttentionerManagerBase:
-    def __init__(self, model: PreTrainedModel, predictor: Predictor, n_demo, device,n_head):
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        predictor: Predictor,
+        n_demo,
+        device,
+        n_head,
+    ):
         self.n_demo = n_demo
         self.n_head = n_head
         self.device = device
@@ -79,7 +97,9 @@ class AttentionerManagerBase:
     @input_ids.setter
     def input_ids(self, input_ids):
         self._input_ids = input_ids
-        class_poss, final_poss = self.predictor.get_pos({'input_ids': input_ids})
+        class_poss, final_poss = self.predictor.get_pos(
+            {"input_ids": input_ids}
+        )
         for attention_adapter in self.attention_adapters:
             attention_adapter.register_input_ids(input_ids)
             attention_adapter.class_poss = class_poss
@@ -109,7 +129,11 @@ class AttentionerManagerBase:
     def grad(self, *args, **kwargs):
         grads = []
         for attention_adapter in self.attention_adapters:
-            grads.append(self.grad_process(attention_adapter.params.grad, *args, **kwargs))
+            grads.append(
+                self.grad_process(
+                    attention_adapter.params.grad, *args, **kwargs
+                )
+            )
         return grads
 
     def params(self):
@@ -123,7 +147,7 @@ def manager_decoractor(manager: AttentionerManagerBase):
     def model_forward_decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            input_ids = kwargs.get('input_ids', None)
+            input_ids = kwargs.get("input_ids", None)
             if input_ids is None:
                 input_ids = args[0]
             manager.register_input_ids(input_ids)
@@ -135,16 +159,25 @@ def manager_decoractor(manager: AttentionerManagerBase):
 
 
 class GPT2AttentionerManager(AttentionerManagerBase):
-    def __init__(self, model: PreTrainedModel, n_demo, predictor: Predictor, device, n_head=1):
-        super().__init__(model, predictor, n_demo, device,n_head=n_head)
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        n_demo,
+        predictor: Predictor,
+        device,
+        n_head=1,
+    ):
+        super().__init__(model, predictor, n_demo, device, n_head=n_head)
 
     def register_attentioner_to_model(self):
         attention_adapters = []
         for i, layer in enumerate(self.model.transformer.h):
-            attention_adapter = AttentionAdapter(n_demo=self.n_demo, device=self.device,
-                                                 n_head=self.n_head)
-            layer.attn._attn = partial(gpt2_attn, layer.attn,
-                                       attention_adapter=attention_adapter)
+            attention_adapter = AttentionAdapter(
+                n_demo=self.n_demo, device=self.device, n_head=self.n_head
+            )
+            layer.attn._attn = partial(
+                gpt2_attn, layer.attn, attention_adapter=attention_adapter
+            )
             attention_adapters.append(attention_adapter)
         return attention_adapters
 
@@ -155,7 +188,8 @@ class AttentionAdapter(AttentionAdapterBase):
         self.n_demo = n_demo
         self.n_head = n_head
         self.weight = torch.nn.Parameter(
-            torch.zeros((n_head, n_demo), requires_grad=True, device=device))
+            torch.zeros((n_head, n_demo), requires_grad=True, device=device)
+        )
         self.class_poss = None
         self.final_poss = None
 
@@ -165,8 +199,12 @@ class AttentionAdapter(AttentionAdapterBase):
         weight = self.weight.exp()
         bsz, n_head, seq_len, _ = attn_weights.shape
         assert bsz == 1
-        mask_mat = torch.ones((1, n_head, seq_len, seq_len), device=attn_weights.device)
-        mask_mat[:, :, final_poss, class_poss] = weight.reshape(1, self.n_head, self.n_demo)
+        mask_mat = torch.ones(
+            (1, n_head, seq_len, seq_len), device=attn_weights.device
+        )
+        mask_mat[:, :, final_poss, class_poss] = weight.reshape(
+            1, self.n_head, self.n_demo
+        )
         return attn_weights * mask_mat
 
     @property
