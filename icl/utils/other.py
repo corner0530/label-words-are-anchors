@@ -9,9 +9,9 @@ import os
 from .random_utils import np_temp_random
 
 REDUCE_FN_MAPPINGS = {
-    'sum': torch.sum,
-    'mean': torch.mean,
-    'none': lambda x: x
+    "sum": torch.sum,
+    "mean": torch.mean,
+    "none": lambda x: x,
 }
 
 
@@ -35,15 +35,21 @@ def show_words(logits, tokenizer, topk=5):
 def load_args(args_type, is_ipynb=False):
     if not is_ipynb:
         parser = HfArgumentParser((args_type,))
-        args, = parser.parse_args_into_dataclasses()
+        (args,) = parser.parse_args_into_dataclasses()
     else:
         args = args_type()
     return args
 
 
-
-def sample_two_set_with_shot_per_class(ori_data, a_shot, b_shot, seed, label_name: str = 'labels',
-                                       a_total_shot=None, b_total_shot=None):
+def sample_two_set_with_shot_per_class(
+    ori_data,
+    a_shot,
+    b_shot,
+    seed,
+    label_name: str = "labels",
+    a_total_shot=None,
+    b_total_shot=None,
+):
     a_label_count = {}
     b_label_count = {}
     a_data_idx = []
@@ -73,9 +79,13 @@ def sample_two_set_with_shot_per_class(ori_data, a_shot, b_shot, seed, label_nam
             b_total_cnt += 1
 
         a_cond = a_total_shot is not None and a_total_cnt >= a_total_shot
-        b_cond = (b_total_shot is not None and b_total_cnt >= b_total_shot) or (b_shot == 0)
+        b_cond = (
+            b_total_shot is not None and b_total_cnt >= b_total_shot
+        ) or (b_shot == 0)
         if a_cond and b_cond:
-            warnings.warn(f"sampled {a_total_shot} and {b_total_shot} samples, ")
+            warnings.warn(
+                f"sampled {a_total_shot} and {b_total_shot} samples, "
+            )
 
     a_data = ori_data.select(a_data_idx)
     b_data = ori_data.select(b_data_idx)
@@ -99,8 +109,13 @@ class TensorStrFinder:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
 
-    def find_tensor_in_tensor(self, a_tensor: Union[torch.Tensor, list], b_tensor: torch.Tensor,
-                              return_mask=True, match_before: Optional[int] = None):
+    def find_tensor_in_tensor(
+        self,
+        a_tensor: Union[torch.Tensor, list],
+        b_tensor: torch.Tensor,
+        return_mask=True,
+        match_before: Optional[int] = None,
+    ):
         if len(b_tensor.shape) == 2:
             assert b_tensor.shape[0] == 1
             b_tensor = b_tensor[0]
@@ -120,22 +135,34 @@ class TensorStrFinder:
             mask = torch.zeros_like(b_tensor, dtype=torch.bool)
             for pos in positions:
                 if match_before is None or pos + window_size <= match_before:
-                    mask[pos:pos + window_size] = True
+                    mask[pos : pos + window_size] = True
             return mask
 
         return positions
 
-    def find_str_in_tensor(self, s: str, t: torch.Tensor, return_mask=True, match_before=None):
+    def find_str_in_tensor(
+        self, s: str, t: torch.Tensor, return_mask=True, match_before=None
+    ):
         s_tokens = self.tokenizer.encode(s, add_special_tokens=False)
         s_tensor = torch.LongTensor(s_tokens)
-        return self.find_tensor_in_tensor(s_tensor, t, return_mask=return_mask,
-                                          match_before=match_before)
+        return self.find_tensor_in_tensor(
+            s_tensor, t, return_mask=return_mask, match_before=match_before
+        )
 
-    def get_strs_mask_in_tensor(self, list_s: List[str], t: torch.Tensor, match_before=None):
-        list_s_tokens = [self.tokenizer.encode(s, add_special_tokens=False) for s in list_s]
-        list_s_tensor = [torch.LongTensor(s_tokens) for s_tokens in list_s_tokens]
+    def get_strs_mask_in_tensor(
+        self, list_s: List[str], t: torch.Tensor, match_before=None
+    ):
+        list_s_tokens = [
+            self.tokenizer.encode(s, add_special_tokens=False) for s in list_s
+        ]
+        list_s_tensor = [
+            torch.LongTensor(s_tokens) for s_tokens in list_s_tokens
+        ]
         mask_tensor_list = [
-            self.find_tensor_in_tensor(s_tensor, t, return_mask=True, match_before=match_before) for
-            s_tensor in list_s_tensor]
+            self.find_tensor_in_tensor(
+                s_tensor, t, return_mask=True, match_before=match_before
+            )
+            for s_tensor in list_s_tensor
+        ]
         mask_tensor = functools.reduce(torch.logical_or, mask_tensor_list)
         return mask_tensor

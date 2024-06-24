@@ -27,7 +27,15 @@ class AttentionAdapterBase(nn.Module):
         self.input_ids = input_ids
 
 
-def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, attention_adapter=None):
+def gpt2_attn(
+    self,
+    query,
+    key,
+    value,
+    attention_mask=None,
+    head_mask=None,
+    attention_adapter=None,
+):
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     if self.scale_attn_weights:
@@ -38,9 +46,12 @@ def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
 
     if not self.is_cross_attention:
         query_length, key_length = query.size(-2), key.size(-2)
-        causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length].bool()
-        attn_weights = torch.where(causal_mask, attn_weights,
-                                   self.masked_bias.to(attn_weights.dtype))
+        causal_mask = self.bias[
+            :, :, key_length - query_length : key_length, :key_length
+        ].bool()
+        attn_weights = torch.where(
+            causal_mask, attn_weights, self.masked_bias.to(attn_weights.dtype)
+        )
 
     if attention_mask is not None:
         attn_weights = attn_weights + attention_mask
@@ -61,9 +72,19 @@ def gpt2_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
     return attn_output, attn_weights
 
 
-def gptj_attn(self, query, key, value, attention_mask=None, head_mask=None, attention_adapter=None):
+def gptj_attn(
+    self,
+    query,
+    key,
+    value,
+    attention_mask=None,
+    head_mask=None,
+    attention_adapter=None,
+):
     query_length, key_length = query.size(-2), key.size(-2)
-    causal_mask = self.bias[:, :, key_length - query_length: key_length, :key_length]
+    causal_mask = self.bias[
+        :, :, key_length - query_length : key_length, :key_length
+    ]
 
     query = query.to(torch.float32)
     key = key.to(torch.float32)
@@ -71,7 +92,9 @@ def gptj_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
     attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
     mask_value = torch.finfo(attn_weights.dtype).min
-    mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(attn_weights.device)
+    mask_value = torch.tensor(mask_value, dtype=attn_weights.dtype).to(
+        attn_weights.device
+    )
     attn_weights = torch.where(causal_mask, attn_weights, mask_value)
 
     attn_weights = attn_weights / self.scale_attn
@@ -95,7 +118,11 @@ def gptj_attn(self, query, key, value, attention_mask=None, head_mask=None, atte
 
 
 class AttentionerManagerBase:
-    def __init__(self, model: PreTrainedModel, attention_adapters: List[AttentionAdapterBase]):
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        attention_adapters: List[AttentionAdapterBase],
+    ):
         self.model = model
         self.attention_adapters = attention_adapters
         self.model.forward = manager_decoractor(self)(self.model.forward)
@@ -117,8 +144,11 @@ class AttentionerManagerBase:
     def register_attentioner_to_model(self):
         raise NotImplementedError
 
-    def set_attentioner_state(self, use_flag: bool,
-                              attention_adapter_idxs: Optional[Union[int, List[int]]] = None):
+    def set_attentioner_state(
+        self,
+        use_flag: bool,
+        attention_adapter_idxs: Optional[Union[int, List[int]]] = None,
+    ):
         if attention_adapter_idxs is None:
             attention_adapter_idxs = range(len(self.attention_adapters))
         elif isinstance(attention_adapter_idxs, int):
@@ -131,7 +161,7 @@ def manager_decoractor(manager: AttentionerManagerBase):
     def model_forward_decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            input_ids = kwargs.get('input_ids', None)
+            input_ids = kwargs.get("input_ids", None)
             if input_ids is None:
                 input_ids = args[0]
             manager.register_input_ids(input_ids)
@@ -143,27 +173,48 @@ def manager_decoractor(manager: AttentionerManagerBase):
 
 
 class GPT2AttentionerManager(AttentionerManagerBase):
-    def __init__(self, model: PreTrainedModel, attention_adapters: List[AttentionAdapterBase]):
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        attention_adapters: List[AttentionAdapterBase],
+    ):
         super().__init__(model, attention_adapters)
 
     def register_attentioner_to_model(self):
         for i, layer in enumerate(self.model.transformer.h):
-            layer.attn._attn = partial(gpt2_attn, layer.attn,
-                                       attention_adapter=self.attention_adapters[i])
+            layer.attn._attn = partial(
+                gpt2_attn,
+                layer.attn,
+                attention_adapter=self.attention_adapters[i],
+            )
 
 
 class GPTJAttentionerManager(AttentionerManagerBase):
-    def __init__(self, model: PreTrainedModel, attention_adapters: List[AttentionAdapterBase]):
+    def __init__(
+        self,
+        model: PreTrainedModel,
+        attention_adapters: List[AttentionAdapterBase],
+    ):
         super().__init__(model, attention_adapters)
 
     def register_attentioner_to_model(self):
         for i, layer in enumerate(self.model.transformer.h):
-            layer.attn._attn = partial(gptj_attn, layer.attn,
-                                       attention_adapter=self.attention_adapters[i])
+            layer.attn._attn = partial(
+                gptj_attn,
+                layer.attn,
+                attention_adapter=self.attention_adapters[i],
+            )
 
 
 class AttentionAdapter(AttentionAdapterBase):
-    def __init__(self, label_id_dict, pad_token_id, task_name, tokenizer, window_size=None) -> None:
+    def __init__(
+        self,
+        label_id_dict,
+        pad_token_id,
+        task_name,
+        tokenizer,
+        window_size=None,
+    ) -> None:
         super().__init__()
         self.label_id_dict = label_id_dict
         self.pad_token_id = pad_token_id
@@ -171,17 +222,28 @@ class AttentionAdapter(AttentionAdapterBase):
         self.tokenizer = tokenizer
         self.window_size = window_size
         if self.window_size is not None:
-            warnings.warn(
-                "window_size is not used")
+            warnings.warn("window_size is not used")
 
-        if task_name == 'sst2':
-            self.prefix_idxs = [tokenizer.encode('Sentiment')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'agnews':
-            self.prefix_idxs = [tokenizer.encode('Answer')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'trec':
-            self.prefix_idxs = [tokenizer.encode(' Type')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'emo':
-            self.prefix_idxs = [tokenizer.encode('Emotion')[-1], tokenizer.encode(':')[0]]
+        if task_name == "sst2":
+            self.prefix_idxs = [
+                tokenizer.encode("Sentiment")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "agnews":
+            self.prefix_idxs = [
+                tokenizer.encode("Answer")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "trec":
+            self.prefix_idxs = [
+                tokenizer.encode(" Type")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "emo":
+            self.prefix_idxs = [
+                tokenizer.encode("Emotion")[-1],
+                tokenizer.encode(":")[0],
+            ]
         else:
             raise NotImplementedError(f"task_name: {task_name}")
 
@@ -198,24 +260,43 @@ class AttentionAdapter(AttentionAdapterBase):
             input_ids = ori_input_ids.detach().clone()
             input_ids[:, 1:] += ori_input_ids[:, :-1] * 100000
             input_ids[:, 2:] += ori_input_ids[:, :-2] * 100000 * 100000
-            class_pos = torch.arange(sql, device=device).unsqueeze(0).repeat(bsz, 1)[
-                input_ids == class_idx].reshape(bsz, -1)
+            class_pos = (
+                torch.arange(sql, device=device)
+                .unsqueeze(0)
+                .repeat(bsz, 1)[input_ids == class_idx]
+                .reshape(bsz, -1)
+            )
             class_poss.append(class_pos)
         return class_poss, final_pos
 
     def _forward(self, attn_weights):
-        class_poss, final_pos = self.get_pos(self.input_ids, self.label_id_dict, self.pad_token_id)
+        class_poss, final_pos = self.get_pos(
+            self.input_ids, self.label_id_dict, self.pad_token_id
+        )
         bsz, sql = self.input_ids.shape
         for class_pos in class_poss:
             for b_idx in range(bsz):
                 for single_class_pos in class_pos[b_idx]:
-                    attn_weights[b_idx, :,
-                    single_class_pos: single_class_pos + self.window_size + 1,
-                    :single_class_pos] = -10000.
+                    attn_weights[
+                        b_idx,
+                        :,
+                        single_class_pos : single_class_pos
+                        + self.window_size
+                        + 1,
+                        :single_class_pos,
+                    ] = -10000.0
         return attn_weights
 
+
 class AttentionAdapterNonLabel(AttentionAdapterBase):
-    def __init__(self, label_id_dict, pad_token_id, task_name, tokenizer, window_size=None) -> None:
+    def __init__(
+        self,
+        label_id_dict,
+        pad_token_id,
+        task_name,
+        tokenizer,
+        window_size=None,
+    ) -> None:
         super().__init__()
         self.label_id_dict = label_id_dict
         self.pad_token_id = pad_token_id
@@ -223,17 +304,28 @@ class AttentionAdapterNonLabel(AttentionAdapterBase):
         self.tokenizer = tokenizer
         self.window_size = window_size
         if self.window_size is not None:
-            warnings.warn(
-                "window_size is not used")
+            warnings.warn("window_size is not used")
 
-        if task_name == 'sst2':
-            self.prefix_idxs = [tokenizer.encode('Sentiment')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'agnews':
-            self.prefix_idxs = [tokenizer.encode('Answer')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'trec':
-            self.prefix_idxs = [tokenizer.encode(' Type')[-1], tokenizer.encode(':')[0]]
-        elif task_name == 'emo':
-            self.prefix_idxs = [tokenizer.encode('Emotion')[-1], tokenizer.encode(':')[0]]
+        if task_name == "sst2":
+            self.prefix_idxs = [
+                tokenizer.encode("Sentiment")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "agnews":
+            self.prefix_idxs = [
+                tokenizer.encode("Answer")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "trec":
+            self.prefix_idxs = [
+                tokenizer.encode(" Type")[-1],
+                tokenizer.encode(":")[0],
+            ]
+        elif task_name == "emo":
+            self.prefix_idxs = [
+                tokenizer.encode("Emotion")[-1],
+                tokenizer.encode(":")[0],
+            ]
         else:
             raise NotImplementedError(f"task_name: {task_name}")
 
@@ -250,23 +342,36 @@ class AttentionAdapterNonLabel(AttentionAdapterBase):
             input_ids = ori_input_ids.detach().clone()
             input_ids[:, 1:] += ori_input_ids[:, :-1] * 100000
             input_ids[:, 2:] += ori_input_ids[:, :-2] * 100000 * 100000
-            class_pos = torch.arange(sql, device=device).unsqueeze(0).repeat(bsz, 1)[
-                input_ids == class_idx].reshape(bsz, -1)
+            class_pos = (
+                torch.arange(sql, device=device)
+                .unsqueeze(0)
+                .repeat(bsz, 1)[input_ids == class_idx]
+                .reshape(bsz, -1)
+            )
             class_poss.append(class_pos)
         return class_poss, final_pos
 
     def _forward(self, attn_weights):
-        class_poss, final_pos = self.get_pos(self.input_ids, self.label_id_dict, self.pad_token_id)
+        class_poss, final_pos = self.get_pos(
+            self.input_ids, self.label_id_dict, self.pad_token_id
+        )
         # device = self.input_ids.device
         bsz, sql = self.input_ids.shape
         assert bsz == 1
         class_poss_flatten = torch.flatten(torch.cat(class_poss, dim=-1))
-        non_label_idxs = set(range(final_pos[0] - 1)) - set(class_poss_flatten.tolist())
-        random_word_idxs = random.sample(non_label_idxs, len(class_poss_flatten))
+        non_label_idxs = set(range(final_pos[0] - 1)) - set(
+            class_poss_flatten.tolist()
+        )
+        random_word_idxs = random.sample(
+            non_label_idxs, len(class_poss_flatten)
+        )
 
         for b_idx in range(bsz):
             for random_word_idx in random_word_idxs:
-                attn_weights[b_idx, :,
-                random_word_idx: random_word_idx + self.window_size + 1,
-                :random_word_idx] = -10000.
+                attn_weights[
+                    b_idx,
+                    :,
+                    random_word_idx : random_word_idx + self.window_size + 1,
+                    :random_word_idx,
+                ] = -10000.0
         return attn_weights
