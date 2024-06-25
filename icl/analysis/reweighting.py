@@ -67,8 +67,8 @@ def train(args: ReweightingArgs):
     training_args = TrainingArguments(
         "./output_dir",
         remove_unused_columns=False,
-        per_gpu_eval_batch_size=args.batch_size,
-        per_gpu_train_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size,
+        per_device_train_batch_size=args.batch_size,
     )
 
     def prepare_analysis_dataset(seed):
@@ -115,8 +115,8 @@ def train(args: ReweightingArgs):
         training_args = TrainingArguments(
             "./output_dir",
             remove_unused_columns=False,
-            per_gpu_eval_batch_size=1,
-            per_gpu_train_batch_size=1,
+            per_device_eval_batch_size=1,
+            per_device_train_batch_size=1,
         )
         trainer = Trainer(model=model, args=training_args)
 

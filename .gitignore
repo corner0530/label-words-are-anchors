@@ -2,3 +2,7 @@
 poetry.lock
 
 *.pyc
+gpu_sh*.sh
+
+nohup.out
+results/
